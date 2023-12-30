@@ -57,28 +57,31 @@ var _ = ginkgo.BeforeSuite(func() {
 	Ω(restClient).NotTo(gomega.BeNil())
 
 	yunikorn.EnsureYuniKornConfigsPresent()
-
-	// Create namespace
-	ginkgo.By("Create namespace " + dev)
-	ns, err := kClient.CreateNamespace(dev, nil)
-	Ω(err).NotTo(HaveOccurred())
-	Ω(ns.Status.Phase).To(gomega.Equal(v1.NamespaceActive))
-})
-
-var _ = ginkgo.AfterSuite(func() {
-	// Clean up
-	ginkgo.By("Deleting PVCs and PVs")
-	err := kClient.DeletePVCs(dev)
-	err2 := kClient.DeletePVs(dev)
-	ginkgo.By("Tearing down namespace: " + dev)
-	err3 := kClient.TearDownNamespace(dev)
-
-	Ω(err).NotTo(HaveOccurred())
-	Ω(err2).NotTo(HaveOccurred())
-	Ω(err3).NotTo(HaveOccurred())
 })
 
 var _ = ginkgo.Describe("PersistentVolume", func() {
+	ginkgo.BeforeEach(func() {
+		// Create namespace
+		dev = "dev-" + common.RandSeq(5)
+		ginkgo.By("Create namespace " + dev)
+		ns, err := kClient.CreateNamespace(dev, nil)
+		Ω(err).NotTo(HaveOccurred())
+		Ω(ns.Status.Phase).To(gomega.Equal(v1.NamespaceActive))
+	})
+
+	ginkgo.AfterEach(func() {
+		// Clean up
+		ginkgo.By("Deleting PVCs and PVs")
+		err := kClient.DeletePVCs(dev)
+		err2 := kClient.DeletePVs(dev)
+		ginkgo.By("Tearing down namespace: " + dev)
+		err3 := kClient.TearDownNamespace(dev)
+
+		Ω(err).NotTo(HaveOccurred())
+		Ω(err2).NotTo(HaveOccurred())
+		Ω(err3).NotTo(HaveOccurred())
+	})
+
 	ginkgo.It("Verify_static_binding_of_local_pv", func() {
 		pvName := "local-pv-" + common.RandSeq(5)
 		conf := k8s.PvConfig{

@@ -39,7 +39,7 @@ import (
 var kClient k8s.KubeCtl
 var restClient yunikorn.RClient
 var ns *v1.Namespace
-var dev = "dev" + common.RandSeq(5)
+var dev string
 var oldConfigMap = new(v1.ConfigMap)
 var annotation = "ann-" + common.RandSeq(10)
 
@@ -68,11 +68,6 @@ var _ = ginkgo.BeforeSuite(func() {
 	ginkgo.By("Port-forward the scheduler pod")
 	var err = kClient.PortForwardYkSchedulerPod()
 	Ω(err).NotTo(gomega.HaveOccurred())
-
-	ginkgo.By("create development namespace")
-	ns, err = kClient.CreateNamespace(dev, nil)
-	gomega.Ω(err).NotTo(gomega.HaveOccurred())
-	gomega.Ω(ns.Status.Phase).To(gomega.Equal(v1.NamespaceActive))
 
 	var nodes *v1.NodeList
 	nodes, err = kClient.GetNodes()
@@ -125,7 +120,6 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
-
 	ginkgo.By("Untainting some nodes")
 	err := kClient.UntaintNodes(nodesToTaint, taintKey)
 	Ω(err).NotTo(gomega.HaveOccurred(), "Could not remove taint from nodes "+strings.Join(nodesToTaint, ","))
@@ -134,14 +128,26 @@ var _ = ginkgo.AfterSuite(func() {
 	checks, err := yunikorn.GetFailedHealthChecks()
 	Ω(err).NotTo(gomega.HaveOccurred())
 	Ω(checks).To(gomega.Equal(""), checks)
-	ginkgo.By("Tearing down namespace: " + ns.Name)
-	err = kClient.TearDownNamespace(ns.Name)
-	Ω(err).NotTo(gomega.HaveOccurred())
 
 	yunikorn.RestoreConfigMapWrapper(oldConfigMap, annotation)
 })
 
 var _ = ginkgo.Describe("SimplePreemptor", func() {
+	ginkgo.BeforeEach(func() {
+		dev = "dev" + common.RandSeq(5)
+		ginkgo.By("create development namespace")
+		var err error
+		ns, err = kClient.CreateNamespace(dev, nil)
+		gomega.Ω(err).NotTo(gomega.HaveOccurred())
+		gomega.Ω(ns.Status.Phase).To(gomega.Equal(v1.NamespaceActive))
+	})
+
+	ginkgo.AfterEach(func() {
+		ginkgo.By("Tearing down namespace: " + ns.Name)
+		err := kClient.TearDownNamespace(ns.Name)
+		Ω(err).NotTo(gomega.HaveOccurred())
+	})
+
 	ginkgo.It("Verify_basic_simple_preemption. Use case: Only one pod is running and same pod has been selected as victim", func() {
 
 		// Define sleepPod

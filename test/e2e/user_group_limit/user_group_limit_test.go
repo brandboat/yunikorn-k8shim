@@ -83,11 +83,6 @@ var _ = ginkgo.BeforeSuite(func() {
 	ginkgo.By("Port-forward the scheduler pod")
 	var err = kClient.PortForwardYkSchedulerPod()
 	Ω(err).NotTo(gomega.HaveOccurred())
-
-	ginkgo.By("create development namespace")
-	ns, err = kClient.CreateNamespace(dev, nil)
-	gomega.Ω(err).NotTo(gomega.HaveOccurred())
-	gomega.Ω(ns.Status.Phase).To(gomega.Equal(v1.NamespaceActive))
 })
 
 var _ = ginkgo.AfterSuite(func() {
@@ -95,12 +90,23 @@ var _ = ginkgo.AfterSuite(func() {
 	checks, err := yunikorn.GetFailedHealthChecks()
 	Ω(err).NotTo(gomega.HaveOccurred())
 	Ω(checks).To(gomega.Equal(""), checks)
-	ginkgo.By("Tearing down namespace: " + ns.Name)
-	err = kClient.TearDownNamespace(ns.Name)
-	Ω(err).NotTo(gomega.HaveOccurred())
 })
 
 var _ = ginkgo.Describe("UserGroupLimit", func() {
+	ginkgo.BeforeEach(func() {
+		ginkgo.By("create development namespace")
+		var err error
+		ns, err = kClient.CreateNamespace(dev, nil)
+		gomega.Ω(err).NotTo(gomega.HaveOccurred())
+		gomega.Ω(ns.Status.Phase).To(gomega.Equal(v1.NamespaceActive))
+	})
+
+	ginkgo.AfterEach(func() {
+		ginkgo.By("Tearing down namespace: " + ns.Name)
+		err := kClient.TearDownNamespace(ns.Name)
+		Ω(err).NotTo(gomega.HaveOccurred())
+	})
+
 	ginkgo.It("Verify_maxresources_with_a_specific_user_limit", func() {
 		ginkgo.By("Update config")
 		annotation = "ann-" + common.RandSeq(10)
